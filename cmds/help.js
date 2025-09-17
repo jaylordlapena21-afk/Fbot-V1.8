@@ -1,72 +1,66 @@
-module.exports = {
-    name: "help",
-    usePrefix: false,
-    usage: "help [command_name] (optional) | help all",
-    version: "1.3",
+module.exports.config = {
+  name: "help",
+  version: "1.0.0",
+  hasPermission: 0,
+  credits: "august",
+  description: "Guide for new users",
+  category: "system",
+  usages: "/help",
+  prefix: true,
+  premium: false,
+  cooldowns: 5
+};
 
-    execute({ api, event, args }) {
-        const { threadID, messageID } = event;
+const mathSansBold = {
+  A: "𝗔", B: "𝗕", C: "𝗖", D: "𝗗", E: "𝗘", F: "𝗙", G: "𝗚", H: "𝗛", I: "𝗜",
+  J: "𝗝", K: "𝗞", L: "𝗟", M: "𝗠", N: "𝗡", O: "𝗢", P: "𝗣", Q: "𝗤", R: "𝗥",
+  S: "𝗦", T: "𝗧", U: "𝗨", V: "𝗩", W: "𝗪", X: "𝗫", Y: "𝗬", Z: "𝗭", a: "𝗮", b: "𝗯", c: "𝗰", d: "𝗱", e: "𝗲", f: "𝗳", g: "𝗴", h: "𝗵", i: "𝗶",
+  j: "𝗷", k: "𝗸", l: "𝗹", m: "𝗺", n: "𝗻", o: "𝗼", p: "𝗽", q: "𝗾", r: "𝗿",
+  s: "𝘀", t: "𝘁", u: "𝘂", v: "𝘃", w: "𝘄", x: "𝘅", y: "𝘆", z: "𝘇"
+};
 
-        if (args.length > 0) {
-            const commandName = args[0].toLowerCase();
+module.exports.run = async function ({ api, event, args }) {
+  const uid = event.senderID;  // Get the sender's UID
+  const userName = (await api.getUserInfo(uid))[uid].name;
 
-            if (commandName === "all") {
-                // Show all non-admin commands in alphabetical order
-                const allCommands = Array.from(global.commands.values())
-                    .filter(cmd => !cmd.admin)
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((cmd, index) => `${index + 1}. ${cmd.name} (${cmd.usePrefix ? "uses prefix" : "no prefix"})\n   Usage: ${cmd.usage}`)
-                    .join("\n\n");
+  const { commands } = global.client;
+  const { threadID, messageID } = event;
+  const threadSetting = global.data.threadData.get(parseInt(threadID)) || {};
+  const prefix = threadSetting.hasOwnProperty("PREFIX") ? threadSetting.PREFIX : global.config.PREFIX;
 
-                const allHelpMessage = `
-╔════════════╗
-     🤖 All Commands 🤖
-╚════════════╝
-${allCommands}
+  const categories = new Set();
+  const categorizedCommands = new Map();
 
-Use 'help [command_name]' for details.`;
-
-                return api.sendMessage(allHelpMessage, threadID, messageID);
-            }
-
-            // Show details for a specific command (including admin-only)
-            const command = global.commands.get(commandName);
-
-            if (!command) {
-                return api.sendMessage(`❌ Command '${commandName}' not found.`, threadID, messageID);
-            }
-
-            const commandHelpMessage = `
-╔════════════╗
-     🤖 Command Info 🤖
-╚════════════╝
-Name: ${command.name}
-Usage: ${command.usage}
-Prefix Required: ${command.usePrefix ? "✅ Yes" : "❌ No"}
-Admin Only: ${command.admin ? "✅ Yes" : "❌ No"}
-Version: ${command.version}`;
-
-            return api.sendMessage(commandHelpMessage, threadID, messageID);
-        }
-
-        // Show only 5 random non-admin commands
-        const commandArray = Array.from(global.commands.values())
-            .filter(cmd => !cmd.admin)
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .slice(0, 5)
-            .map((cmd, index) => `${index + 1}. ${cmd.name} (${cmd.usePrefix ? "uses prefix" : "no prefix"})\n   Usage: ${cmd.usage}`)
-            .join("\n\n");
-
-        const helpMessage = `
-╔════════════╗
-     🤖 Bot Commands 🤖
-╚════════════╝
-Here are some commands:  
-${commandArray}
-
-Use 'help all' to see all commands.
-Use 'help [command_name]' for details.`;
-
-        api.sendMessage(helpMessage, threadID, messageID);
+  for (const [name, value] of commands) {
+    const categoryName = value.config.category;
+    if (!categories.has(categoryName)) {
+      categories.add(categoryName);
+      categorizedCommands.set(categoryName, []);
     }
+    categorizedCommands.get(categoryName).push(`│ ✧ ${value.config.name}`);
+  }
+
+  let msg = `Hey ${userName}, these are commands that may help your assignments and essays:\n`;
+
+  // Loop through categories and add commands
+  for (const categoryName of categories) {
+    const categoryNameSansBold = categoryName.split("").map(c => mathSansBold[c] || c).join("");
+    msg += `╭─❍「 ${categoryNameSansBold} 」\n`;
+    msg += categorizedCommands.get(categoryName).join("\n");
+    msg += "\n╰───────────⟡\n";
+  }
+
+  // Adding total commands and prefix info
+  msg += `├─────☾⋆\n│ » Total commands: [ ${commands.size} ]\n│「 ☾⋆ PREFIX: ${global.config.PREFIX} 」\n╰──────────⧕\n\n`;
+
+  // Add bot owner information at the bottom of the command list with bold formatting
+  const yourUID = '61559999326713';  // Set your UID here
+  const botOwnerBold = "𝗝𝗮𝘆𝗹𝗼𝗿𝗱 𝗟𝗮 𝗣𝗲ñ𝗮"; // Bold formatting for bot owner's name
+  msg += `\nBot Owner: ${botOwnerBold}`;
+
+  // Send the message with the command list and bot owner info
+  api.sendMessage(msg, threadID, messageID);
+
+  // Share the bot owner profile after the message
+  return api.shareContact(yourUID, event.senderID, threadID);
 };
